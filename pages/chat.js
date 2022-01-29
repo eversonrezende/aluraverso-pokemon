@@ -2,18 +2,36 @@ import { Box, Text, TextField, Image, Button } from '@skynexui/components'
 import React from 'react'
 import appConfig from '../config.json'
 import { createClient } from '@supabase/supabase-js'
+import { useRouter } from 'next/router'
+import { ButtonSendSticker } from '../src/components/ButtonSendSticker'
 
 // COMO FAZER AJAX: https://medium.com/@omariosouto/entendendo-como-fazer-ajax-com-a-fetchapi-977ff20da3c6
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTY0MzMyNTg2NCwiZXhwIjoxOTU4OTAxODY0fQ.kY7qhH4CPDSR93RqEPIKtOLlmoxMihcCMpLbzwEjn3A'
 const SUPABASE_URL = 'https://pullfdptqeowqlxbaiop.supabase.co'
-
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+function escutaMensagensEmTempoReal(adicionaMensagem) {
+  return supabaseClient
+    .from('mensagens')
+    .on('INSERT', respostaLive => {
+      adicionaMensagem(respostaLive.new)
+    })
+    .subscribe()
+}
+
 export default function ChatPage() {
-  // Sua lógica vai aqui
+  const roteamento = useRouter()
+  const usuarioLogado = roteamento.query.username
   const [mensagem, setMensagem] = React.useState('')
-  const [listaDeMensagens, setListaDeMensagens] = React.useState([])
+  const [listaDeMensagens, setListaDeMensagens] = React.useState([
+    //{
+    //id: 1,
+    //de: 'eversonrezende',
+    //texto:
+    //  ':sticker: https://i.pinimg.com/originals/96/34/c5/9634c520c9a3cd4e7f23190bb2c96500.gif'
+    //}
+  ])
 
   React.useEffect(() => {
     supabaseClient
@@ -21,43 +39,36 @@ export default function ChatPage() {
       .select('*')
       .order('id', { ascending: false })
       .then(({ data }) => {
-        console.log('Dados da consulta: ', data)
+        //console.log('Dados da consulta:', data)
         setListaDeMensagens(data)
       })
+
+    escutaMensagensEmTempoReal(novaMensagem => {
+      console.log('Nova Mensagem',novaMensagem)
+      setListaDeMensagens((valorAtualDaLista) => {
+        return [
+          novaMensagem,
+          ...valorAtualDaLista,
+        ]
+      })
+    })
   }, [])
-
-  /*
-    Usuário
-    - Usuário digita em um campo textarea
-    - Aperta enter para enviar
-    - Tem que adicionar o texto na lista
-
-    Dev
-    - [X] Campo criado
-    - [X] Vamos usar o onChange que usa o useState (ter um if para caso seja enter para Limpar a variável)
-    - [X] Lista de Mensagem
-  */
-
-  // ./Sua lógica vai aqui
 
   function handleNovaMensagem(novaMensagem) {
     const mensagem = {
-      //id: listaDeMensagens.length + 1,
-      de: 'eversonrezende',
+      // id: listaDeMensagens.length + 1,
+      de: usuarioLogado,
       texto: novaMensagem
     }
 
-    supabaseClient
-      .from('mensagens')
-      .insert([
-        // Tem que ser um objeto com os MESMOS CAMPOS que você escreveu no supabase
-        mensagem
-      ])
-      .then(({ data }) => {
-        console.log('Criando mensagem: ', data)
-      })
+    supabaseClient.from('mensagens').insert([
+      // Tem que ser um objeto com os MESMOS CAMPOS que você escreveu no supabase
+      mensagem
+    ])
+    .then(({ data }) => {
+    console.log('Criando mensagem: ', data)
+     })
 
-    setListaDeMensagens([data[0], ...listaDeMensagens])
     setMensagem('')
   }
 
@@ -68,7 +79,7 @@ export default function ChatPage() {
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: appConfig.theme.colors.primary[500],
-        backgroundImage: `url(https://i.pinimg.com/564x/43/77/4f/43774fb3b7eecc24a4ae700260b206f0.jpg)`,
+        backgroundImage: `url(https://c4.wallpaperflare.com/wallpaper/19/244/58/pokemon-pokemon-first-generation-minimalism-video-games-wallpaper-preview.jpg)`,
         backgroundRepeat: 'no-repeat',
         backgroundSize: 'cover',
         backgroundBlendMode: 'multiply',
@@ -103,15 +114,13 @@ export default function ChatPage() {
           }}
         >
           <MessageList mensagens={listaDeMensagens} />
-
-          {/*{listaDeMensagens.map(mensagemAtual => {
-            return (
-              <li key={mensagemAtual.id}>
-                  {mensagemAtual.id} : {mensagemAtual.texto} 
-              </li>
-            )
-          })}*/}
-
+          {/* {listaDeMensagens.map((mensagemAtual) => {
+                        return (
+                            <li key={mensagemAtual.id}>
+                                {mensagemAtual.de}: {mensagemAtual.texto}
+                            </li>
+                        )
+                    })} */}
           <Box
             as="form"
             styleSheet={{
@@ -142,6 +151,12 @@ export default function ChatPage() {
                 backgroundColor: appConfig.theme.colors.neutrals[800],
                 marginRight: '12px',
                 color: appConfig.theme.colors.neutrals[200]
+              }}
+            />
+            <ButtonSendSticker
+              onStickerClick={sticker => {
+                //console.log('Salva esse sticker no banco', sticker)
+                handleNovaMensagem(':sticker: ' + sticker)
               }}
             />
           </Box>
@@ -176,7 +191,7 @@ function Header() {
 }
 
 function MessageList(props) {
-  console.log(props)
+  //console.log(props)
   return (
     <Box
       tag="ul"
@@ -230,7 +245,12 @@ function MessageList(props) {
                 {new Date().toLocaleDateString()}
               </Text>
             </Box>
-            {mensagem.texto}
+            {/* Condicional: {mensagem.texto.startsWith(':sticker:').toString()} */}
+            {mensagem.texto.startsWith(':sticker:') ? (
+              <Image src={mensagem.texto.replace(':sticker:', '')} />
+            ) : (
+              mensagem.texto
+            )}
           </Text>
         )
       })}
